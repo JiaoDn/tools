@@ -15,6 +15,10 @@ type LoginParams struct {
 	Password string `json:"password"`
 }
 
+type TokenParam struct {
+	Token string `json:"token"`
+}
+
 func GenerateEncryptPasswd(Password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -101,6 +105,16 @@ func Login(c *gin.Context) (string, error) {
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var tokenParam = TokenParam{}
+		uri := c.FullPath()
+		if uri != "/login" {
+			if err := c.BindJSON(&tokenParam); err != nil {
+				fmt.Println(err)
+			}
+			claims, err := ParseToken(tokenParam.Token)
+			fmt.Println(err)
+			fmt.Println(claims)
+		}
 
 	}
 
