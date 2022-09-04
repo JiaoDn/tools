@@ -114,6 +114,10 @@ func AuthMiddleware() gin.HandlerFunc {
 			claims, err := ParseToken(tokenParam.Token)
 			fmt.Println(err)
 			fmt.Println(claims)
+			if err != nil {
+				c.Abort()
+				c.JSON(401, "未授权")
+			}
 		}
 
 	}
