@@ -63,7 +63,7 @@ type LocalStore struct {
 	list     *list.List               // 用来做 gc
 }
 
-func (ls *LocalStore) SessionInit(sessionId string) (interface{}, error) {
+func (ls *LocalStore) SessionInit(sessionId string) (*SessionStore, error) {
 	ls.lock.Lock()
 	defer ls.lock.Unlock()
 	v := make(map[interface{}]interface{}, 0)
@@ -71,4 +71,13 @@ func (ls *LocalStore) SessionInit(sessionId string) (interface{}, error) {
 	element := ls.list.PushFront(newsess)
 	ls.sessions[sessionId] = element
 	return newsess, nil
+}
+
+func (ls *LocalStore) SessionRead(sessionId string) (*SessionStore, error) {
+	if element, ok := ls.sessions[sessionId]; ok {
+		return element.Value.(*SessionStore), nil
+	} else {
+		sess, err := ls.SessionInit(sessionId)
+		return sess, err
+	}
 }
