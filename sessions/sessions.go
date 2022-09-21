@@ -1,24 +1,14 @@
 package sessions
 
 import (
-	"container/list"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"sync"
 	"time"
 )
 
-type Manager struct {
-	cookieName  string
-	lock        sync.Mutex
-	maxLifeTime int64
-}
-
-func GetManager(cookieName string, maxLifeTime int64) (*Manager, error) {
-	return &Manager{cookieName: cookieName, maxLifeTime: maxLifeTime}, nil
-}
-
-func (manager *Manager) sessionId() string {
+func GenerateSessionId() string {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return ""
@@ -26,58 +16,61 @@ func (manager *Manager) sessionId() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-type SessionStore struct {
+type Session struct {
 	sessionId       string                      // session id唯一标示
 	recentlyVisited time.Time                   // 最后访问时间
 	value           map[interface{}]interface{} // session里面存储的值
 }
 
-func (st *SessionStore) Set(key, value interface{}) error {
-	st.value[key] = value
+func (session *Session) Set(key, value interface{}) error {
+	session.value[key] = value
 
 	return nil
 }
 
-func (st *SessionStore) Get(key interface{}) interface{} {
+func (session *Session) Get(key interface{}) interface{} {
 
-	if v, ok := st.value[key]; ok {
+	if v, ok := session.value[key]; ok {
 		return v
 	} else {
 		return nil
 	}
 }
 
-func (st *SessionStore) Delete(key interface{}) error {
-	delete(st.value, key)
+func (session *Session) Delete(key interface{}) error {
+	delete(session.value, key)
 
 	return nil
 }
 
-func (st *SessionStore) SessionID() string {
-	return st.sessionId
+func (session *Session) SessionID() string {
+	return session.sessionId
 }
 
-type LocalStore struct {
-	lock     sync.Mutex               // 用来锁
-	sessions map[string]*list.Element // 用来存储在内存
-	list     *list.List               // 用来做 gc
+type MemoryStore struct {
+	lock     sync.Mutex
+	sessions map[string]*Session
 }
 
-func (ls *LocalStore) SessionInit(sessionId string) (*SessionStore, error) {
-	ls.lock.Lock()
-	defer ls.lock.Unlock()
+func InitMemoryStore() (*MemoryStore, error) {
+	sessionss := make(map[string]*Session, 0)
+	return &MemoryStore{sessions: sessionss}, nil
+}
+
+func (ms *MemoryStore) Add(sessionId string) (*Session, error) {
+	ms.lock.Lock()
+	defer ms.lock.Unlock()
 	v := make(map[interface{}]interface{}, 0)
-	newsess := &SessionStore{sessionId: sessionId, recentlyVisited: time.Now(), value: v}
-	element := ls.list.PushFront(newsess)
-	ls.sessions[sessionId] = element
+	newsess := &Session{sessionId: sessionId, recentlyVisited: time.Now(), value: v}
+	ms.sessions[sessionId] = newsess
 	return newsess, nil
 }
 
-func (ls *LocalStore) SessionRead(sessionId string) (*SessionStore, error) {
-	if element, ok := ls.sessions[sessionId]; ok {
-		return element.Value.(*SessionStore), nil
+func (ms *MemoryStore) Get(sessionId string) (*Session, error) {
+	if element, ok := ms.sessions[sessionId]; ok {
+		return element, nil
 	} else {
-		sess, err := ls.SessionInit(sessionId)
-		return sess, err
+
+		return nil, errors.New("session not found in RAM")
 	}
 }
